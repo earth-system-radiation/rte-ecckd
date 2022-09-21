@@ -192,8 +192,8 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
             pressure_weight0*log(this%absorption(gas)%coefficient(:,ip0,it0+1,iv0+1)) + &
             pressure_weight1*log(this%absorption(gas)%coefficient(:,ip0+1,it0+1,iv0+1)))))
         endif
-      elseif (this%concentration_dependence_code(gas) .eq. linear .or. &
-              this%concentration_dependence_code(gas) .eq. relative_linear) then
+      elseif (this%absorption(gas)%concentration_dependence_code .eq. linear .or. &
+              this%absorption(gas)%concentration_dependence_code .eq. relative_linear) then
         if (.not. logarithmic_interpolation) then
           !Bi-linear interpolation.
           optical_depth(i,j,:) = weight*(temperature_weight0*( &

@@ -2,7 +2,7 @@ program ecckd_rfmip_lw
 use, intrinsic :: iso_fortran_env, only: error_unit
 use mo_rte_kind, only: wp
 use mo_optical_props, only: ty_optical_props_1scl
-use mo_gas_optics_ecckd, only: ty_gas_optics_ecckd
+use gas_optics_ecckd, only: ty_gas_optics_ecckd
 use mo_gas_concentrations, only: ty_gas_concs
 use mo_source_functions, only: ty_source_func_lw
 use mo_rte_lw, only: rte_lw
@@ -32,6 +32,7 @@ type(ty_fluxes_broadband) :: fluxes
 type(ty_gas_concs), dimension(:), allocatable :: gas_conc_array
 
 
+!Parse command line arguments.
 call parse_args(rfmip_path, ecckd_path, forcing_index, physics_index)
 block_size = 1
 if (physics_index .eq. 2) then
@@ -156,9 +157,7 @@ end subroutine stop_on_err
 subroutine usage()
   use iso_fortran_env, only : error_unit
 
-  write(error_unit, *) "Usage: ecckd_rfmip_lw [block_size] [rfmip_file] " &
-                       //"[k-distribution_file] [forcing_index (1,2)] " &
-                       //"[physics_index (1,2)]"
+  write(error_unit, *) "Usage: ecckd_rfmip_lw rfmip_file ecckd_file"
 end subroutine usage
 
 
@@ -184,13 +183,26 @@ subroutine determine_gas_names(forcing_index, names_in_kdist, names_in_rfmip)
   character(len=32), dimension(:), intent(inout) :: names_in_kdist
   character(len=32), dimension(:), intent(inout) :: names_in_rfmip
 
-  names_in_kdist = (/"co2", "ch4", "n2o", "o2", "cfc11", "cfc12"/)
+  names_in_kdist = (/"co2  ", &
+                     "ch4  ", &
+                     "n2o  ", &
+                     "o2   ", &
+                     "cfc11", &
+                     "cfc12"/)
   if (forcing_index .eq. 1) then
-    names_in_rfmip = (/"carbon_dioxide", "methane", "nitrous_oxide", "oxygen", &
-                       "cfc11", "cfc12"/)
+    names_in_rfmip = (/"carbon_dioxide", &
+                       "methane       ", &
+                       "nitrous_oxide ", &
+                       "oxygen        ", &
+                       "cfc11         ", &
+                       "cfc12         "/)
   elseif (forcing_index .eq. 2) then
-    names_in_rfmip = (/"carbon_dioxide", "methane", "nitrous_oxide", "oxygen", &
-                       "cfc11eq", "cfc12"/)
+    names_in_rfmip = (/"carbon_dioxide", &
+                       "methane       ", &
+                       "nitrous_oxide ", &
+                       "oxygen        ", &
+                       "cfc11eq       ", &
+                       "cfc12         "/)
   else
     call stop_on_err("forcing index must equal 1 or 2.")
   endif
@@ -230,7 +242,7 @@ subroutine parse_args(rfmip_path, ecckd_path, forcing_index, physics_index)
         stop 1
       endif
       call get_command_argument(i, buffer)
-      read(buffer, "(i)") forcing_index
+      read(buffer, "(i1)") forcing_index
       if (forcing_index .lt. 1 .or. forcing_index .gt. 2) then
         call stop_on_err("forcing index must be either 1 or 2.")
       endif
@@ -241,7 +253,7 @@ subroutine parse_args(rfmip_path, ecckd_path, forcing_index, physics_index)
         stop 1
       endif
       call get_command_argument(i, buffer)
-      read(buffer, "(i)") physics_index
+      read(buffer, "(i1)") physics_index
       if (physics_index .lt. 1 .or. physics_index .gt. 2) then
         call stop_on_err("physics index must be either 1 or 2.")
       endif
