@@ -64,6 +64,7 @@ subroutine load_and_init(ecckd, filename, available_gases)
   length(1:1) = get_var_size(ncid, "band_number", 1)
   allocate(gpt2band(length(1)))
   gpt2band(:) = read_field(ncid, "band_number", length(1))
+  gpt2band(:) = gpt2band(:) + 1
   band2gpt(1, 1) = 1
   band2gpt(2, size(band2gpt, 2)) = length(1)
   band = 1

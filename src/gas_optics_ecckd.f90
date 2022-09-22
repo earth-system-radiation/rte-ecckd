@@ -279,6 +279,7 @@ subroutine calculate_planck_function(this, level_temperature, planck)
       endif
     enddo
   enddo
+  planck(:,:,:) = planck(:,:,:) / 3.14159265359
 end subroutine calculate_planck_function
 
 
@@ -356,13 +357,12 @@ function gas_optics_int(this, play, plev, tlay, tsfc, gas_desc, &
         if (trim(error_msg) .ne. "") then
           return
         endif
-write(*,*) trim(names(j)), minval(layer_vmr), maxval(layer_vmr)
         exit
       endif
     enddo
     if (i .gt. this%num_gases) then
       !Did not find the gas
-      write(error_unit, *) "Warning: Failed to find "//trim(names(j))//" in the ecckd model."
+!     write(error_unit, *) "Warning: Failed to find "//trim(names(j))//" in the ecckd model."
       cycle
 !     error_msg = "Failed to find "//trim(names(j))//" in the ecckd model."
 !     return
@@ -377,7 +377,6 @@ write(*,*) trim(names(j)), minval(layer_vmr), maxval(layer_vmr)
       first_calc = .false.
     endif
   enddo
-! write(*,*) "foobar ", minval(optical_depth), maxval(optical_depth)
 
   !Calculate source functions.
   call calculate_planck_function(this, tlay, sources%lay_source)
@@ -391,8 +390,14 @@ write(*,*) trim(names(j)), minval(layer_vmr), maxval(layer_vmr)
     error_msg = "tlev is required for ecckd"
     return
   endif
-  call calculate_planck_function(this, tlev, sources%lev_source_inc)
-  call calculate_planck_function(this, tlev, sources%lev_source_dec)
+
+  allocate(buffer(size(sources%lev_source_inc, 1), &
+                  size(sources%lev_source_inc, 2) + 1, &
+                  size(sources%lev_source_inc, 3)))
+  call calculate_planck_function(this, tlev, buffer)
+  sources%lev_source_inc(:,:,:) = buffer(:,2:,:)
+  sources%lev_source_dec(:,:,:) = buffer(:,:size(sources%lev_source_dec, 2),:)
+  deallocate(buffer)
 
   !Clean up.
   deallocate(layer_vmr)
@@ -416,6 +421,7 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
   real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
   character(len=128) :: error_msg !< String error message (empty if successful)
 
+  logical :: first_calc
   integer :: i
   integer :: j
   real(wp), dimension(:,:), allocatable :: layer_vmr
@@ -430,8 +436,10 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
   allocate(layer_vmr(size(tlay, 1), size(tlay, 2)))
   allocate(optical_depth(size(tlay, 1), size(tlay, 2), size(this%gpoint_fraction, 2)))
   optical_depth(:,:,:) = 0.
-  do i = 1, this%num_gases
-    do j = 1, n
+  optical_props%tau(:,:,:) = 0.
+  first_calc = .true.
+  do j = 1, n
+    do i = 1, this%num_gases
       if (trim(this%gas(i)) .eq. trim(names(j))) then
         error_msg = gas_desc%get_vmr(names(j), layer_vmr)
         if (trim(error_msg) .ne. "") then
@@ -440,14 +448,22 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
         exit
       endif
     enddo
-    if (j .gt. n) then
+    if (i .gt. this%num_gases) then
       !Did not find the gas
-      error_msg = "Failed to in find the gas in the ecckd model"
-      return
+!     write(error_unit, *) "Warning: Failed to find "//trim(names(j))//" in the ecckd model"
+      cycle
+!     error_msg = "Failed to find "//trim(names(j))//" in the ecckd model"
+!     return
+    endif
+    if (this%absorption(i)%composite_only .and. .not. first_calc) then
+      cycle
     endif
     call calculate_optical_depth(this, i, plev, tlay, &
                                  layer_vmr, optical_depth, .false.)
     optical_props%tau(:,:,:) = optical_props%tau(:,:,:) + optical_depth(:,:,:)
+    if (this%absorption(i)%composite_only) then
+      first_calc = .false.
+    endif
   enddo
 
   !Calculate the rayleigh optical depth and single scatter albedo.

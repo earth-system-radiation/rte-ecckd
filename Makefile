@@ -9,7 +9,7 @@ librte_ecckd.a: gas_optics_ecckd.o
 gas_optics_ecckd.o: src/gas_optics_ecckd.f90
 	$(FC) $(FCFLAGS) -fPIC -o $@ -c $<
 
-test: ecckd_rfmip_lw all
+test: ecckd_rfmip_lw ecckd_rfmip_sw all
 
 ecckd_rfmip_lw: ecckd_rfmip_lw.o \
                 mo_load_coefficients.o \
@@ -18,6 +18,18 @@ ecckd_rfmip_lw: ecckd_rfmip_lw.o \
 	$(FC) $(FCFLAGS) -o $@ $(LDFLAGS) $^ -lrte_ecckd $(LIBDIR)/librrtmgp.a $(LIBDIR)/librte.a -lnetcdff -lnetcdf
 
 ecckd_rfmip_lw.o: example/rfmip-rad-irf/ecckd_rfmip_lw.F90 \
+                  mo_load_coefficients.o \
+                  mo_rfmip_io.o \
+                  mo_simple_netcdf.o
+	$(FC) $(FCFLAGS) -fPIC -o $@ -c $<
+
+ecckd_rfmip_sw: ecckd_rfmip_sw.o \
+                mo_load_coefficients.o \
+                mo_rfmip_io.o \
+                mo_simple_netcdf.o
+	$(FC) $(FCFLAGS) -o $@ $(LDFLAGS) $^ -lrte_ecckd $(LIBDIR)/librrtmgp.a $(LIBDIR)/librte.a -lnetcdff -lnetcdf
+
+ecckd_rfmip_sw.o: example/rfmip-rad-irf/ecckd_rfmip_sw.F90 \
                   mo_load_coefficients.o \
                   mo_rfmip_io.o \
                   mo_simple_netcdf.o
@@ -36,4 +48,6 @@ mo_simple_netcdf.o: example/rfmip-rad-irf/mo_simple_netcdf.F90
 
 clean:
 	rm -f gas_optics_ecckd.o librte_ecckd.a
-	rm -f ecckd_rfmip_lw ecckd_rfmip_lw.o mo_load_coefficients.o mo_rfmip_io.o mo_simple_netcdf.o
+	rm -f ecckd_rfmip_lw ecckd_rfmip_lw.o
+	rm -f ecckd_rfmip_sw ecckd_rfmip_sw.o
+	rm -f mo_load_coefficients.o mo_rfmip_io.o mo_simple_netcdf.o

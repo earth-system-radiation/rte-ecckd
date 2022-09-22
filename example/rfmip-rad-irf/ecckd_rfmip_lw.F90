@@ -10,6 +10,7 @@ use mo_fluxes, only: ty_fluxes_broadband
 use mo_load_coefficients, only: load_and_init
 use mo_rfmip_io, only: read_size, read_and_block_pt, read_and_block_gases_ty, &
                        unblock_and_write, read_and_block_lw_bc
+use mo_simple_netcdf, only: stop_on_err
 implicit none
 
 
@@ -80,7 +81,7 @@ endif
 nbnd = ecckd%get_nband()
 
 !Which way is up?
-top_at_1 = p_lay(1, 1, 1) < p_lay(1, nlay, 1)
+top_at_1 = p_lay(1, 1, 1) .lt. p_lay(1, nlay, 1)
 
 !RRTMGP won't run with pressure less than its minimum. The top level in the RFMIP file
 !is set to 10^-3 Pa. Here we pretend the layer is just a bit less deep.
@@ -101,7 +102,8 @@ call stop_on_err(source%alloc(block_size, nlay, ecckd))
 call stop_on_err(optical_props%alloc_1scl(block_size, nlay, ecckd))
 
 !Loop over blocks
-do b = 1, nblocks
+!do b = 1, nblocks
+do b = 1, 1700
   fluxes%flux_up => flux_up(:,:,b)
   fluxes%flux_dn => flux_dn(:,:,b)
 
@@ -133,29 +135,16 @@ do b = 1, nblocks
 enddo
 
 !Write out the output.
-call unblock_and_write(trim(flxup_file), 'rlu', flux_up)
-call unblock_and_write(trim(flxdn_file), 'rld', flux_dn)
+call unblock_and_write(trim(flxup_file), "rlu", flux_up)
+call unblock_and_write(trim(flxdn_file), "rld", flux_dn)
 
 
 contains
 
 
-!> @brief Crash if there is an error.
-subroutine stop_on_err(error_msg)
-  use iso_fortran_env, only : error_unit
-
-  character(len=*), intent(in) :: error_msg !< Error message.
-
-  if (trim(error_msg) .ne. "") then
-    write (error_unit,*) "Error: "//trim(error_msg)
-    stop 1
-  endif
-end subroutine stop_on_err
-
-
 !> @brief Print usage instructions.
 subroutine usage()
-  use iso_fortran_env, only : error_unit
+  use, intrinsic :: iso_fortran_env, only : error_unit
 
   write(error_unit, *) "Usage: ecckd_rfmip_lw rfmip_file ecckd_file"
 end subroutine usage
@@ -163,7 +152,7 @@ end subroutine usage
 
 !> @brief Print help message.
 subroutine help()
-  use iso_fortran_env, only : error_unit
+  use, intrinsic :: iso_fortran_env, only : error_unit
 
   call usage()
   write(error_unit, *) ""
