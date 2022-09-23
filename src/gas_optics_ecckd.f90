@@ -11,13 +11,13 @@ private
 
 !> @brief Helper class used to calculate optical depth for each gas.
 type, public :: AbsorptionTable
-  real, dimension(:,:,:,:), allocatable :: coefficient !< Absorption coefficient [m2 mol-1] (gpoit, pressure, temperature).
+  real(kind=wp), dimension(:,:,:,:), allocatable :: coefficient !< Absorption coefficient [m2 mol-1] (gpoit, pressure, temperature).
   logical :: composite_component !< Part of the "composite" gas?
   logical :: composite_only !< Only part of the "composite" gas?
 ! real, dimension(:,:), allocatable :: composite_vmr
   integer :: concentration_dependence_code !< How is absoprtion coefficient calculated?
-  real, dimension(:), allocatable :: mole_fraction !< Mole fraction look up table.
-  real :: reference_mole_fraction !< Reference mole fraction amount.
+  real(kind=wp), dimension(:), allocatable :: mole_fraction !< Mole fraction look up table.
+  real(kind=wp) :: reference_mole_fraction !< Reference mole fraction amount.
 end type AbsorptionTable
 
 
@@ -27,17 +27,17 @@ type, extends(ty_gas_optics), public :: ty_gas_optics_ecckd
 ! character(len=16), dimension(16) :: composite_gas
 ! real, dimension(:,:), allocatable :: composite_vmr
   character(len=32), dimension(16) :: gas !< Gas names.
-  real, dimension(:,:), allocatable :: gpoint_fraction
-  real, dimension(:), allocatable :: log_pressure
+  real(kind=wp), dimension(:,:), allocatable :: gpoint_fraction
+  real(kind=wp), dimension(:), allocatable :: log_pressure
   integer :: num_composite_gases !< Number of gases that make up the "composite" gas.
   integer :: num_gases !< Total number of gases.
-  real, dimension(:,:), allocatable :: planck_function
-  real, dimension(:), allocatable :: rayleigh_molar_scattering_coeff
+  real(kind=wp), dimension(:,:), allocatable :: planck_function
+  real(kind=wp), dimension(:), allocatable :: rayleigh_molar_scattering_coeff
   logical :: shortwave !< Longwave or shortwave.
-  real, dimension(:), allocatable :: solar_irradiance
-  real, dimension(:,:), allocatable :: temperature
-  real, dimension(:), allocatable :: temperature_planck
-  real :: total_solar_irradiance !< Total solar irradiance [W m-2].
+  real(kind=wp), dimension(:), allocatable :: solar_irradiance
+  real(kind=wp), dimension(:,:), allocatable :: temperature
+  real(kind=wp), dimension(:), allocatable :: temperature_planck
+  real(kind=wp) :: total_solar_irradiance !< Total solar irradiance [W m-2].
   contains
   procedure, public :: source_is_internal
   procedure, public :: source_is_external
@@ -288,7 +288,7 @@ subroutine calculate_rayleigh_optical_depth(this, level_pressure, optical_depth)
 
   type(ty_gas_optics_ecckd), intent(in) :: this
   real(wp), dimension(:,:), intent(in) :: level_pressure !< (column, level).
-  real(wp), dimension(:,:,:), allocatable :: optical_depth !< (column, layer, gpoint)
+  real(wp), dimension(:,:,:), allocatable, intent(inout) :: optical_depth !< (column, layer, gpoint)
 
   integer :: i
   real(wp), dimension(:,:), allocatable :: moles_per_layer
@@ -313,119 +313,20 @@ subroutine calculate_rayleigh_optical_depth(this, level_pressure, optical_depth)
 end subroutine calculate_rayleigh_optical_depth
 
 
-!> Compute gas optical depth and Planck source functions,
-!! given temperature, pressure, and composition
-function gas_optics_int(this, play, plev, tlay, tsfc, gas_desc, &
-                        optical_props, sources, col_dry, tlev) &
+!> @brief Calculate the optical depth for all gases.
+function gas_optical_depth(this, plev, tlay, gas_desc, optical_props) &
   result(error_msg)
 
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
   real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
   real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
-  real(wp), dimension(:), intent(in) :: tsfc !< Surface skin temperatures [K]; (ncol)
   type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
   class(ty_optical_props_arry), intent(inout) :: optical_props !< Optical properties
-  class(ty_source_func_lw), intent(inout) :: sources !< Planck sources
   character(len=128) :: error_msg !< Error string (empty if succssful)
-  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
-  real(wp), dimension(:,:), intent(in), target, optional :: tlev !< Level temperatures [K]; (ncol, nlay+1)
-
-  real(wp), dimension(:,:,:), allocatable :: buffer
-  logical :: first_calc
-  integer :: i
-  integer :: j
-  real(wp), dimension(:,:), allocatable :: layer_vmr
-  integer :: n
-  character(len=32), dimension(:), allocatable :: names
-  real(wp), dimension(:,:,:), allocatable :: optical_depth
-  real(wp), dimension(:,:), allocatable :: surface_temperature
-
-  !Calculate optical depth.
-  n = gas_desc%get_num_gases()
-  allocate(names(n))
-  names = gas_desc%get_gas_names()
-  allocate(layer_vmr(size(tlay, 1), size(tlay, 2)))
-  allocate(optical_depth(size(tlay, 1), size(tlay, 2), size(this%gpoint_fraction, 2)))
-  optical_depth(:,:,:) = 0.
-  optical_props%tau(:,:,:) = 0.
-  first_calc = .true.
-  do j = 1, n
-    do i = 1, this%num_gases
-      if (trim(this%gas(i)) .eq. trim(names(j))) then
-        error_msg = gas_desc%get_vmr(names(j), layer_vmr)
-        if (trim(error_msg) .ne. "") then
-          return
-        endif
-        exit
-      endif
-    enddo
-    if (i .gt. this%num_gases) then
-      !Did not find the gas
-!     write(error_unit, *) "Warning: Failed to find "//trim(names(j))//" in the ecckd model."
-      cycle
-!     error_msg = "Failed to find "//trim(names(j))//" in the ecckd model."
-!     return
-    endif
-    if (this%absorption(i)%composite_only .and. .not. first_calc) then
-      cycle
-    endif
-    call calculate_optical_depth(this, i, plev, tlay, &
-                                 layer_vmr, optical_depth, .false.)
-    optical_props%tau(:,:,:) = optical_props%tau(:,:,:) + optical_depth(:,:,:)
-    if (this%absorption(i)%composite_only) then
-      first_calc = .false.
-    endif
-  enddo
-
-  !Calculate source functions.
-  call calculate_planck_function(this, tlay, sources%lay_source)
-  allocate(surface_temperature(size(tsfc), 1))
-  surface_temperature(:,1) = tsfc(:)
-  allocate(buffer(size(sources%sfc_source, 1), 1, size(sources%sfc_source, 2)))
-  call calculate_planck_function(this, surface_temperature, buffer)
-  sources%sfc_source(:,:) = buffer(:,1,:)
-  deallocate(buffer, surface_temperature)
-  if (.not. present(tlev)) then
-    error_msg = "tlev is required for ecckd"
-    return
-  endif
-
-  allocate(buffer(size(sources%lev_source_inc, 1), &
-                  size(sources%lev_source_inc, 2) + 1, &
-                  size(sources%lev_source_inc, 3)))
-  call calculate_planck_function(this, tlev, buffer)
-  sources%lev_source_inc(:,:,:) = buffer(:,2:,:)
-  sources%lev_source_dec(:,:,:) = buffer(:,:size(sources%lev_source_dec, 2),:)
-  deallocate(buffer)
-
-  !Clean up.
-  deallocate(layer_vmr)
-  deallocate(names)
-  deallocate(optical_depth)
-end function gas_optics_int
-
-
-!> @brief Compute gas optical depth given temperature, pressure, and composition
-!!        Top-of-atmosphere stellar insolation is also reported 
-function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src, col_dry) &
-  result(error_msg)
-
-  class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
-  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
-  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
-  type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
-  class(ty_optical_props_arry), intent(inout) :: optical_props
-  real(wp), dimension(:,:), intent(out) :: toa_src !< Incoming solar irradiance (ncol, ngpt)
-  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
-  character(len=128) :: error_msg !< String error message (empty if successful)
 
   logical :: first_calc
-  integer :: i
-  integer :: j
   real(wp), dimension(:,:), allocatable :: layer_vmr
-  integer :: n
+  integer :: i, j, n
   character(len=32), dimension(:), allocatable :: names
   real(wp), dimension(:,:,:), allocatable :: optical_depth
 
@@ -465,6 +366,84 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
       first_calc = .false.
     endif
   enddo
+  deallocate(names, layer_vmr, optical_depth)
+end function gas_optical_depth
+
+
+!> Compute gas optical depth and Planck source functions,
+!! given temperature, pressure, and composition
+function gas_optics_int(this, play, plev, tlay, tsfc, gas_desc, &
+                        optical_props, sources, col_dry, tlev) &
+  result(error_msg)
+
+  class(ty_gas_optics_ecckd), intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
+  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
+  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
+  real(wp), dimension(:), intent(in) :: tsfc !< Surface skin temperatures [K]; (ncol)
+  type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
+  class(ty_optical_props_arry), intent(inout) :: optical_props !< Optical properties
+  class(ty_source_func_lw), intent(inout) :: sources !< Planck sources
+  character(len=128) :: error_msg !< Error string (empty if succssful)
+  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
+  real(wp), dimension(:,:), intent(in), target, optional :: tlev !< Level temperatures [K]; (ncol, nlay+1)
+
+  real(wp), dimension(:,:,:), allocatable :: buffer
+  real(wp), dimension(:,:), allocatable :: surface_temperature
+
+  !Calculate optical depth.
+  error_msg = gas_optical_depth(this, plev, tlay, gas_desc, optical_props)
+  if (len_trim(error_msg) .gt. 0) then
+    return
+  endif
+
+  !Calculate source functions.
+  call calculate_planck_function(this, tlay, sources%lay_source)
+  allocate(surface_temperature(size(tsfc), 1))
+  surface_temperature(:,1) = tsfc(:)
+  allocate(buffer(size(sources%sfc_source, 1), 1, size(sources%sfc_source, 2)))
+  call calculate_planck_function(this, surface_temperature, buffer)
+  sources%sfc_source(:,:) = buffer(:,1,:)
+  deallocate(buffer, surface_temperature)
+  if (.not. present(tlev)) then
+    error_msg = "tlev is required for ecckd"
+    return
+  endif
+
+  allocate(buffer(size(sources%lev_source_inc, 1), &
+                  size(sources%lev_source_inc, 2) + 1, &
+                  size(sources%lev_source_inc, 3)))
+  call calculate_planck_function(this, tlev, buffer)
+  sources%lev_source_inc(:,:,:) = buffer(:,2:,:)
+  sources%lev_source_dec(:,:,:) = buffer(:,:size(sources%lev_source_dec, 2),:)
+  deallocate(buffer)
+end function gas_optics_int
+
+
+!> @brief Compute gas optical depth given temperature, pressure, and composition
+!!        Top-of-atmosphere stellar insolation is also reported 
+function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src, col_dry) &
+  result(error_msg)
+
+  class(ty_gas_optics_ecckd), intent(in) :: this
+  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
+  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
+  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
+  type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
+  class(ty_optical_props_arry), intent(inout) :: optical_props
+  real(wp), dimension(:,:), intent(out) :: toa_src !< Incoming solar irradiance (ncol, ngpt)
+  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
+  character(len=128) :: error_msg !< String error message (empty if successful)
+
+  integer :: i
+  integer :: j
+  real(wp), dimension(:,:,:), allocatable :: optical_depth
+
+  !Calculate optical depth.
+  error_msg = gas_optical_depth(this, plev, tlay, gas_desc, optical_props)
+  if (len_trim(error_msg) .gt. 0) then
+    return
+  endif
 
   !Calculate the rayleigh optical depth and single scatter albedo.
   call calculate_rayleigh_optical_depth(this, plev, optical_depth)
@@ -477,6 +456,7 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
       error_msg = "shortwave must use ty_optical_props_2str"
       return
   end select
+  deallocate(optical_depth)
 
   !Calculate TOA source function.
   do j = 1, size(this%gpoint_fraction, 2)
@@ -484,11 +464,6 @@ function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src
       toa_src(i,j) = this%solar_irradiance(j)
     enddo
   enddo
-
-  !Clean up.
-  deallocate(layer_vmr)
-  deallocate(names)
-  deallocate(optical_depth)
 end function gas_optics_ext
 
 

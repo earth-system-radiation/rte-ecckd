@@ -3,7 +3,7 @@ use mo_rte_kind, only: wp
 use mo_gas_concentrations, only: ty_gas_concs
 use gas_optics_ecckd, only: AbsorptionTable, none_, linear, look_up_table, &
                             relative_linear, ty_gas_optics_ecckd
-use mo_simple_netcdf, only: read_field, var_exists, get_var_size, stop_on_err
+use mo_simple_netcdf, only: read_field, read_field_int, var_exists, get_var_size, stop_on_err
 use netcdf
 implicit none
 private
@@ -35,13 +35,9 @@ subroutine load_and_init(ecckd, filename, available_gases)
   integer :: i
   integer :: j
   integer, dimension(4) :: length
-  logical :: lut
-  integer :: n
   integer :: ncid
   integer :: num_tokens
-  real, parameter :: total_solar_irradiance = 1361.d0
   logical :: uses_composite_gas
-  character(len=64) :: varname
 
   if (nf90_open(trim(filename), NF90_NOWRITE, ncid) .ne. NF90_NOERR) then
     call stop_on_err("load_and_init_ecckd(): can't open file"//trim(fileName))
@@ -63,7 +59,7 @@ subroutine load_and_init(ecckd, filename, available_gases)
   allocate(band2gpt(2, length(1)))
   length(1:1) = get_var_size(ncid, "band_number", 1)
   allocate(gpt2band(length(1)))
-  gpt2band(:) = read_field(ncid, "band_number", length(1))
+  gpt2band(:) = read_field_int(ncid, "band_number", length(1))
   gpt2band(:) = gpt2band(:) + 1
   band2gpt(1, 1) = 1
   band2gpt(2, size(band2gpt, 2)) = length(1)

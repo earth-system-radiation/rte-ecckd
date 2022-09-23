@@ -14,6 +14,11 @@ interface read_field
 end interface
 
 
+interface read_field_int
+  module procedure read_1d_field_int
+end interface
+
+
 interface write_field
   module procedure write_1d_int_field
   module procedure write_2d_int_field
@@ -27,6 +32,7 @@ end interface
 public :: get_dim_size
 public :: get_var_size
 public :: read_field
+public :: read_field_int
 public :: stop_on_err
 public :: var_exists
 public :: write_field
@@ -66,6 +72,23 @@ function read_1d_field(ncid, varname, nx)
     call stop_on_err("read_field: can't read variable "//trim(varname))
   endif
 end function read_1d_field
+
+
+function read_1d_field_int(ncid, varname, nx)
+  integer, intent(in) :: ncid
+  character(len=*), intent(in) :: varname
+  integer, intent(in) :: nx
+  integer, dimension(nx) :: read_1d_field_int
+
+  integer :: varid
+
+  if (nf90_inq_varid(ncid, trim(varname), varid) .ne. nf90_noerr) then
+    call stop_on_err("read_field: can't find variable "//trim(varname))
+  endif
+  if (nf90_get_var(ncid, varid, read_1d_field_int) .ne. nf90_noerr) then
+    call stop_on_err("read_field: can't read variable "//trim(varname))
+  endif
+end function read_1d_field_int
 
 
 function read_2d_field(ncid, varname, nx, ny)

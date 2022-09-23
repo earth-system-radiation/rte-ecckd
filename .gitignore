@@ -1,0 +1,10 @@
+*.so
+*.a
+*.o
+*.mod
+ecckd_rfmip_lw
+ecckd_rfmip_sw
+rld_Efx_RTE-ecckd_rad-irf_r1i1p1f1_gn.nc
+rlu_Efx_RTE-ecckd_rad-irf_r1i1p1f1_gn.nc
+rsu_Efx_RTE-ecckd_rad-irf_r1i1p1f1_gn.nc
+rsd_Efx_RTE-ecckd_rad-irf_r1i1p1f1_gn.nc

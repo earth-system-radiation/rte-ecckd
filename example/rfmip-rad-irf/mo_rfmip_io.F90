@@ -61,7 +61,6 @@ subroutine read_and_block_pt(filename, blocksize, p_lay, p_lev, t_lay, t_lev)
 
   integer :: ncid
   integer :: b, nblocks
-  real(kind=wp), dimension(:,:), allocatable :: temp2d
   real(kind=wp), dimension(:,:,:), allocatable :: temp3d
 
   if (any([ncol_l, nlay_l, nexp_l] .eq. 0)) then
