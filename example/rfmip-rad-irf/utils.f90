@@ -1,5 +1,5 @@
 module utils
-use mo_simple_netcdf, only: stop_on_err
+use simple_netcdf, only: stop_on_err
 implicit none
 private
 

@@ -1,16 +1,15 @@
 program ecckd_rfmip_sw
 use, intrinsic :: iso_fortran_env, only: error_unit
-use mo_rte_kind, only: wp
-!use mo_rte_util_array, only: zero_array
-use mo_optical_props, only: ty_optical_props_2str
 use gas_optics_ecckd, only: ty_gas_optics_ecckd
-use mo_gas_concentrations, only: ty_gas_concs
-use mo_rte_sw, only: rte_sw
+use load_coefficients,  only: load_and_init
 use mo_fluxes, only: ty_fluxes_broadband
-use mo_load_coefficients,  only: load_and_init
-use mo_rfmip_io, only: read_size, read_and_block_pt, read_and_block_gases_ty, &
-                       unblock_and_write, read_and_block_sw_bc
-use mo_simple_netcdf, only: stop_on_err
+use mo_gas_concentrations, only: ty_gas_concs
+use mo_optical_props, only: ty_optical_props_2str
+use mo_rte_kind, only: wp
+use mo_rte_sw, only: rte_sw
+use rfmip_io, only: read_and_block_gases_ty, read_and_block_pt, read_and_block_sw_bc, &
+                    read_size, unblock_and_write
+use simple_netcdf, only: stop_on_err
 use utils, only: determine_gas_names, parse_args
 implicit none
 
@@ -22,19 +21,19 @@ logical :: top_at_1
 integer :: b, icol, ibnd, igpt
 character(len=1) :: forcing_index_char, physics_index_char
 character(len=32), dimension(6) :: names_in_kdist, names_in_rfmip
-real(wp), dimension(:,:,:), allocatable :: p_lay, p_lev, t_lay, t_lev ! block_size, nlay, nblocks
-real(wp), dimension(:,:,:), target, allocatable :: flux_up, flux_dn
-real(wp), dimension(:,:), allocatable :: surface_albedo, total_solar_irradiance, &
-                                         solar_zenith_angle
-real(wp), dimension(:,:), allocatable :: sfc_alb_spec
+real(kind=wp), dimension(:,:,:), allocatable :: p_lay, p_lev, t_lay, t_lev ! block_size, nlay, nblocks
+real(kind=wp), dimension(:,:,:), target, allocatable :: flux_up, flux_dn
+real(kind=wp), dimension(:,:), allocatable :: surface_albedo, total_solar_irradiance, &
+                                              solar_zenith_angle
+real(kind=wp), dimension(:,:), allocatable :: sfc_alb_spec
 type(ty_gas_optics_ecckd) :: ecckd
 type(ty_optical_props_2str) :: optical_props
 type(ty_fluxes_broadband) :: fluxes
-real(wp), dimension(:,:), allocatable :: toa_flux ! block_size, ngpt
-real(wp), dimension(:), allocatable :: def_tsi, mu0    ! block_size
+real(kind=wp), dimension(:,:), allocatable :: toa_flux ! block_size, ngpt
+real(kind=wp), dimension(:), allocatable :: def_tsi, mu0 ! block_size
 logical, dimension(:,:), allocatable :: usecol ! block_size, nblocks
 type(ty_gas_concs), dimension(:), allocatable :: gas_conc_array
-real(wp), parameter :: deg_to_rad = acos(-1._wp)/180._wp
+real(kind=wp), parameter :: deg_to_rad = acos(-1._wp)/180._wp
 
 
 !Parse command line arguments.

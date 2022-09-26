@@ -2,7 +2,7 @@ module gas_optics_ecckd
 use, intrinsic :: iso_fortran_env, only: error_unit
 use mo_gas_concentrations, only: ty_gas_concs
 use mo_gas_optics, only: ty_gas_optics
-use mo_optical_props, only: ty_optical_props, ty_optical_props_arry, ty_optical_props_2str
+use mo_optical_props, only: ty_optical_props_arry, ty_optical_props_2str
 use mo_rte_kind, only: wp
 use mo_source_functions, only: ty_source_func_lw
 implicit none
@@ -12,7 +12,6 @@ private
 !> @brief Helper class used to calculate optical depth for each gas.
 type, public :: AbsorptionTable
   real(kind=wp), dimension(:,:,:,:), allocatable :: coefficient !< Absorption coefficient [m2 mol-1] (gpoit, pressure, temperature).
-  logical :: composite_component !< Part of the "composite" gas?
   logical :: composite_only !< Only part of the "composite" gas?
 ! real, dimension(:,:), allocatable :: composite_vmr
   integer :: concentration_dependence_code !< How is absoprtion coefficient calculated?
@@ -52,8 +51,8 @@ type, extends(ty_gas_optics), public :: ty_gas_optics_ecckd
 end type ty_gas_optics_ecckd
 
 
-real(wp), parameter :: gravity = 9.80665 !< Acceleration due to gravity [m s-2].
-real(wp), parameter :: dry_air_molar_mass = 28.970 !< Dry air molar mass [g mol-1].
+real(kind=wp), parameter :: gravity = 9.80665 !< Acceleration due to gravity [m s-2].
+real(kind=wp), parameter :: dry_air_molar_mass = 28.970 !< Dry air molar mass [g mol-1].
 integer, parameter, public :: none_ = 0
 integer, parameter, public :: linear = 1
 integer, parameter, public :: look_up_table = 2
@@ -69,39 +68,39 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
 
   type(ty_gas_optics_ecckd), intent(in) :: this
   integer, intent(in) :: gas !< Index of gas to calculate.
-  real(wp), dimension(:,:), intent(in) :: level_pressure !< (column, level) [Pa].
-  real(wp), dimension(:,:), intent(in) :: layer_temperature !< (column, layer) [K].
-  real(wp), dimension(:,:), intent(in) :: layer_vmr !< (column, layer) [mol mol-1].
-  real(wp), dimension(:,:,:), allocatable, intent(inout) :: optical_depth !< (column, layer, gpoint).
+  real(kind=wp), dimension(:,:), intent(in) :: level_pressure !< Pressure [Pa] (column, level).
+  real(kind=wp), dimension(:,:), intent(in) :: layer_temperature !< Temperature [K] (column, layer).
+  real(kind=wp), dimension(:,:), intent(in) :: layer_vmr !< Volume-mixing ratio [mol mol-1] (column, layer).
+  real(kind=wp), dimension(:,:,:), allocatable, intent(inout) :: optical_depth !< Optical depth (column, layer, gpoint).
   logical, intent(in) :: logarithmic_interpolation !< Use logarithmic interpolation.
 
-  real(wp) :: d_log_p
-  real(wp) :: d_log_vmr
-  real(wp) :: dt
-  real(wp) :: global_weight
+  real(kind=wp) :: d_log_p
+  real(kind=wp) :: d_log_vmr
+  real(kind=wp) :: dt
+  real(kind=wp) :: global_weight
   integer :: i
   integer :: ip0
   integer :: it0
   integer :: iv0
   integer :: j
-  real(wp) :: log_p_0
-  real(wp) :: log_pressure
-  real(wp) :: log_vmr
+  real(kind=wp) :: log_p_0
+  real(kind=wp) :: log_pressure
+  real(kind=wp) :: log_vmr
   integer :: num_columns
   integer :: num_gpoints
   integer :: num_layers
-  real(wp) :: pressure_index
-  real(wp) :: pressure_weight0
-  real(wp) :: pressure_weight1
-  real(wp) :: simple_weight
-  real(wp) :: temperature_index
-  real(wp) :: temperature_weight0
-  real(wp) :: temperature_weight1
-  real(wp) :: t0
-  real(wp) :: vmr_index
-  real(wp) :: vmr_weight0
-  real(wp) :: vmr_weight1
-  real(wp) :: weight
+  real(kind=wp) :: pressure_index
+  real(kind=wp) :: pressure_weight0
+  real(kind=wp) :: pressure_weight1
+  real(kind=wp) :: simple_weight
+  real(kind=wp) :: temperature_index
+  real(kind=wp) :: temperature_weight0
+  real(kind=wp) :: temperature_weight1
+  real(kind=wp) :: t0
+  real(kind=wp) :: vmr_index
+  real(kind=wp) :: vmr_weight0
+  real(kind=wp) :: vmr_weight1
+  real(kind=wp) :: weight
 
   log_p_0 = this%log_pressure(1)
   d_log_p = this%log_pressure(2) - this%log_pressure(1)
@@ -239,20 +238,20 @@ end subroutine calculate_optical_depth
 subroutine calculate_planck_function(this, level_temperature, planck)
 
   type(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: level_temperature !< (column, level) [K].
-  real(wp), dimension(:,:,:), allocatable, intent(inout) :: planck !< (column, level, gpoint).
+  real(kind=wp), dimension(:,:), intent(in) :: level_temperature !< Temperature [K] (column, level).
+  real(kind=wp), dimension(:,:,:), allocatable, intent(inout) :: planck !< Intensity [W m-2 sr-1] (column, level, gpoint).
 
-  real(wp) :: dt
+  real(kind=wp) :: dt
   integer :: i
   integer :: it0
   integer :: j
   integer :: num_columns
   integer :: num_gpoints
   integer :: num_levels
-  real(wp) :: temperature_index
-  real(wp) :: temperature_weight0
-  real(wp) :: temperature_weight1
-  real(wp) :: t0
+  real(kind=wp) :: temperature_index
+  real(kind=wp) :: temperature_weight0
+  real(kind=wp) :: temperature_weight1
+  real(kind=wp) :: t0
 
   num_levels = size(level_temperature, 2)
   num_columns = size(level_temperature, 1)
@@ -287,11 +286,11 @@ end subroutine calculate_planck_function
 subroutine calculate_rayleigh_optical_depth(this, level_pressure, optical_depth)
 
   type(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: level_pressure !< (column, level).
-  real(wp), dimension(:,:,:), allocatable, intent(inout) :: optical_depth !< (column, layer, gpoint)
+  real(kind=wp), dimension(:,:), intent(in) :: level_pressure !< Pressure [Pa] (column, level).
+  real(kind=wp), dimension(:,:,:), allocatable, intent(inout) :: optical_depth !< Optical depth (column, layer, gpoint).
 
   integer :: i
-  real(wp), dimension(:,:), allocatable :: moles_per_layer
+  real(kind=wp), dimension(:,:), allocatable :: moles_per_layer
   integer :: num_columns
   integer :: num_gpoints
   integer :: num_layers
@@ -318,17 +317,17 @@ function gas_optical_depth(this, plev, tlay, gas_desc, optical_props) &
   result(error_msg)
 
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
-  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
+  real(kind=wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
+  real(kind=wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
   type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
   class(ty_optical_props_arry), intent(inout) :: optical_props !< Optical properties
   character(len=128) :: error_msg !< Error string (empty if succssful)
 
   logical :: first_calc
-  real(wp), dimension(:,:), allocatable :: layer_vmr
+  real(kind=wp), dimension(:,:), allocatable :: layer_vmr
   integer :: i, j, n
   character(len=32), dimension(:), allocatable :: names
-  real(wp), dimension(:,:,:), allocatable :: optical_depth
+  real(kind=wp), dimension(:,:,:), allocatable :: optical_depth
 
   !Calculate the gas optical depth.
   n = gas_desc%get_num_gases()
@@ -370,26 +369,26 @@ function gas_optical_depth(this, plev, tlay, gas_desc, optical_props) &
 end function gas_optical_depth
 
 
-!> Compute gas optical depth and Planck source functions,
-!! given temperature, pressure, and composition
+!> @brief Compute gas optical depth and Planck source functions,
+!!        given temperature, pressure, and composition.
 function gas_optics_int(this, play, plev, tlay, tsfc, gas_desc, &
                         optical_props, sources, col_dry, tlev) &
   result(error_msg)
 
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
-  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
-  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
-  real(wp), dimension(:), intent(in) :: tsfc !< Surface skin temperatures [K]; (ncol)
+  real(kind=wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
+  real(kind=wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
+  real(kind=wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
+  real(kind=wp), dimension(:), intent(in) :: tsfc !< Surface skin temperatures [K]; (ncol)
   type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
   class(ty_optical_props_arry), intent(inout) :: optical_props !< Optical properties
   class(ty_source_func_lw), intent(inout) :: sources !< Planck sources
   character(len=128) :: error_msg !< Error string (empty if succssful)
-  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
-  real(wp), dimension(:,:), intent(in), target, optional :: tlev !< Level temperatures [K]; (ncol, nlay+1)
+  real(kind=wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
+  real(kind=wp), dimension(:,:), intent(in), target, optional :: tlev !< Level temperatures [K]; (ncol, nlay+1)
 
-  real(wp), dimension(:,:,:), allocatable :: buffer
-  real(wp), dimension(:,:), allocatable :: surface_temperature
+  real(kind=wp), dimension(:,:,:), allocatable :: buffer
+  real(kind=wp), dimension(:,:), allocatable :: surface_temperature
 
   !Calculate optical depth.
   error_msg = gas_optical_depth(this, plev, tlay, gas_desc, optical_props)
@@ -420,24 +419,24 @@ function gas_optics_int(this, play, plev, tlay, tsfc, gas_desc, &
 end function gas_optics_int
 
 
-!> @brief Compute gas optical depth given temperature, pressure, and composition
-!!        Top-of-atmosphere stellar insolation is also reported 
+!> @brief Compute gas optical depth given temperature, pressure, and composition.
+!!        Top-of-atmosphere stellar insolation is also reported.
 function gas_optics_ext(this, play, plev, tlay, gas_desc, optical_props, toa_src, col_dry) &
   result(error_msg)
 
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
-  real(wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
-  real(wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
+  real(kind=wp), dimension(:,:), intent(in) :: play !< Layer pressures [Pa]; (ncol, nlay)
+  real(kind=wp), dimension(:,:), intent(in) :: plev !< Level pressures [Pa]; (ncol, nlay+1)
+  real(kind=wp), dimension(:,:), intent(in) :: tlay !< Layer temperatures [K]; (ncol, nlay)
   type(ty_gas_concs), intent(in) :: gas_desc !< Gas volume mixing ratios
   class(ty_optical_props_arry), intent(inout) :: optical_props
-  real(wp), dimension(:,:), intent(out) :: toa_src !< Incoming solar irradiance (ncol, ngpt)
-  real(wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
+  real(kind=wp), dimension(:,:), intent(out) :: toa_src !< Incoming solar irradiance (ncol, ngpt)
+  real(kind=wp), dimension(:,:), intent(in), target, optional :: col_dry !< Column dry amount [cm-2]; (col, nlay)
   character(len=128) :: error_msg !< String error message (empty if successful)
 
   integer :: i
   integer :: j
-  real(wp), dimension(:,:,:), allocatable :: optical_depth
+  real(kind=wp), dimension(:,:,:), allocatable :: optical_depth
 
   !Calculate optical depth.
   error_msg = gas_optical_depth(this, plev, tlay, gas_desc, optical_props)
@@ -479,56 +478,70 @@ end function get_ngas
 
 !> @brief Return true if initialized for internal sources/longwave, false otherwise.
 pure function source_is_internal(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
   logical :: source_is_internal
+
   source_is_internal = allocated(this%temperature_planck)
 end function source_is_internal
 
 
 !> @brief Return true if initialized for external sources/shortwave, false otherwise.
 pure function source_is_external(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
   logical :: source_is_external
+
   source_is_external = allocated(this%solar_irradiance)
 end function source_is_external
 
 
 !> @brief Return the names of the gases known to the k-distributions.
 pure function get_gases(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
   character(len=32), dimension(this%num_gases) :: get_gases
+
   get_gases = this%gas(1:this%num_gases)
 end function get_gases
 
 
 !> @brief Return the minimum pressure on the interpolation grids.
 pure function get_press_min(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp) :: get_press_min
+  real(kind=wp) :: get_press_min
+
   get_press_min = exp(this%log_pressure(1))
 end function get_press_min
 
 
 !> @brief Return the maximum pressure on the interpolation grids.
 pure function get_press_max(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp) :: get_press_max
+  real(kind=wp) :: get_press_max
+
   get_press_max = exp(this%log_pressure(size(this%log_pressure)))
 end function get_press_max
 
 
 !> @brief Return the minimum temparature on the interpolation grids.
 pure function get_temp_min(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp) :: get_temp_min
+  real(kind=wp) :: get_temp_min
+
   get_temp_min = minval(this%temperature)
 end function get_temp_min
 
 
 !> @brief Return the maximum temparature on the interpolation grids.
 pure function get_temp_max(this)
+
   class(ty_gas_optics_ecckd), intent(in) :: this
-  real(wp) :: get_temp_max
+  real(kind=wp) :: get_temp_max
+
   get_temp_max = maxval(this%temperature)
 end function get_temp_max
 

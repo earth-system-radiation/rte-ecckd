@@ -1,4 +1,4 @@
-module mo_simple_netcdf
+module simple_netcdf
 use mo_rte_kind, only: wp
 use netcdf
 implicit none
@@ -339,4 +339,4 @@ subroutine stop_on_err(msg)
 end subroutine stop_on_err
 
 
-end module mo_simple_netcdf
+end module simple_netcdf

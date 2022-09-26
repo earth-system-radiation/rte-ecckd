@@ -1,9 +1,9 @@
-module mo_load_coefficients
-use mo_rte_kind, only: wp
-use mo_gas_concentrations, only: ty_gas_concs
+module load_coefficients
 use gas_optics_ecckd, only: AbsorptionTable, none_, linear, look_up_table, &
                             relative_linear, ty_gas_optics_ecckd
-use mo_simple_netcdf, only: read_field, read_field_int, var_exists, get_var_size, stop_on_err
+use mo_gas_concentrations, only: ty_gas_concs
+use mo_rte_kind, only: wp
+use simple_netcdf, only: get_var_size, read_field, read_field_int, stop_on_err, var_exists
 use netcdf
 implicit none
 private
@@ -23,7 +23,7 @@ subroutine load_and_init(ecckd, filename, available_gases)
   class(ty_gas_concs), intent(in) :: available_gases
 
   integer :: band
-  real(wp), dimension(:,:), allocatable :: band_lims_wvn
+  real(kind=wp), dimension(:,:), allocatable :: band_lims_wvn
   integer, dimension(:,:), allocatable :: band2gpt
   character(len=1024) :: buffer
   character(len=32), dimension(16) :: composite_gas
@@ -81,13 +81,6 @@ subroutine load_and_init(ecckd, filename, available_gases)
   allocate(ecckd%gpoint_fraction(length(1), length(2)))
   ecckd%gpoint_fraction(:,:) = read_field(ncid, "gpoint_fraction", length(1), length(2))
 
-! if (variable_exists(dataset, "g_point")) then
-!   allocate(ecckd%gpoint())
-!   call read_data(dataset, "g_point", ecckd%gpoint)
-!   allocate(ecckd%wavenumber_hr())
-!   call read_data(dataset, "wavenumber_hr", ecckd%wavenumber_hr)
-! endif
-
   ecckd%shortwave = var_exists(ncid, "solar_irradiance")
   if (ecckd%shortwave) then
     length(1:1) = get_var_size(ncid, "solar_irradiance", 1)
@@ -128,16 +121,7 @@ subroutine load_and_init(ecckd, filename, available_gases)
       counter = counter + 1
       ecckd%gas(counter) = trim(gas(i))
       call read_gas_input_data(ecckd%absorption(counter), ncid, gas(i))
-      ecckd%absorption(counter)%composite_component = .false.
       ecckd%absorption(counter)%composite_only = .false.
-      if (uses_composite_gas) then
-        do j = 1, ecckd%num_composite_gases
-          if (trim(gas(i)) .eq. trim(composite_gas(j))) then
-            ecckd%absorption(counter)%composite_component = .true.
-            exit
-          endif
-        enddo
-      endif
     endif
   enddo
   if (uses_composite_gas) then
@@ -153,14 +137,11 @@ subroutine load_and_init(ecckd, filename, available_gases)
         counter = counter + 1
         ecckd%gas(counter) = trim(composite_gas(i))
         call read_gas_input_data(ecckd%absorption(counter), ncid, "composite")
-        ecckd%absorption(counter)%composite_component = .true.
         ecckd%absorption(counter)%composite_only = .true.
       endif
     enddo
   endif
   ecckd%num_gases = counter
-  write(*,*) counter, ecckd%num_gases
-
   ncid = nf90_close(ncid)
 end subroutine load_and_init
 
@@ -200,8 +181,6 @@ subroutine read_gas_input_data(gas, ncid, gas_name)
       gas%concentration_dependence_code = none_
       varname = trim(gas_name)//"_mole_fraction"
       length(1:2) = get_var_size(ncid, varname, 2)
-!     allocate(gas%composite_vmr(length(1), length(2)))
-!     gas%composite_vmr(:,:) = read_field(ncid, varname, length(1), length(2))
     elseif (n .eq. 1) then
       gas%concentration_dependence_code = linear
     elseif (n .eq. 3) then
@@ -314,4 +293,4 @@ subroutine tokenize(buffer, tokens, num_tokens)
 end subroutine tokenize
 
 
-end module mo_load_coefficients
+end module load_coefficients

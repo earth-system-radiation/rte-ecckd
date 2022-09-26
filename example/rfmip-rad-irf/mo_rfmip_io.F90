@@ -1,8 +1,8 @@
-module mo_rfmip_io
+module rfmip_io
 use mo_rte_kind, only: wp
 use mo_gas_concentrations, only: ty_gas_concs
 use mo_rrtmgp_util_string, only: string_in_array
-use mo_simple_netcdf, only: read_field, write_field, get_dim_size, stop_on_err
+use simple_netcdf, only: get_dim_size, read_field, stop_on_err, write_field
 use netcdf
 implicit none
 private
@@ -16,7 +16,9 @@ public :: read_size
 public :: unblock_and_write
 
 
-integer :: ncol_l = 0, nlay_l = 0, nexp_l = 0 ! local copies
+integer :: ncol_l = 0
+integer :: nexp_l = 0
+integer :: nlay_l = 0
 
 
 contains
@@ -25,7 +27,7 @@ contains
 !> @brief find the size of the problem: columns, layers, perturbations (experiments)
 subroutine read_size(filename, ncol, nlay, nexp)
   character(len=*), intent(in) :: filename
-  integer, intent(out), optional :: ncol, nlay, nexp
+  integer, intent(out) :: ncol, nlay, nexp
 
   integer :: ncid
 
@@ -33,21 +35,15 @@ subroutine read_size(filename, ncol, nlay, nexp)
     call stop_on_err("read_size: can't find file "//trim(filename))
   endif
 
-  if (present(ncol)) then
-    ncol = get_dim_size(ncid, 'site')
-    ncol_l = ncol
+  ncol = get_dim_size(ncid, 'site')
+  ncol_l = ncol
+  nlay = get_dim_size(ncid, 'layer')
+  nlay_l = nlay
+  if (get_dim_size(ncid, 'level') .ne. nlay + 1) then
+    call stop_on_err("read_size: number of levels should be nlay+1")
   endif
-  if (present(nlay)) then
-    nlay = get_dim_size(ncid, 'layer')
-    nlay_l = nlay
-    if (get_dim_size(ncid, 'level') .ne. nlay + 1) then
-      call stop_on_err("read_size: number of levels should be nlay+1")
-    endif
-  endif
-  if (present(nexp)) then
-    nexp = get_dim_size(ncid, 'expt')
-    nexp_l = nexp
-  endif
+  nexp = get_dim_size(ncid, 'expt')
+  nexp_l = nexp
   ncid = nf90_close(ncid)
 end subroutine read_size
 
@@ -321,4 +317,4 @@ subroutine unblock_and_write(filename, varname, values)
 end subroutine unblock_and_write
 
 
-end module mo_rfmip_io
+end module rfmip_io

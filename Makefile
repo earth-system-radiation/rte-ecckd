@@ -59,3 +59,4 @@ clean:
 	rm -f ecckd_rfmip_lw ecckd_rfmip_lw.o
 	rm -f ecckd_rfmip_sw ecckd_rfmip_sw.o
 	rm -f mo_load_coefficients.o mo_rfmip_io.o mo_simple_netcdf.o utils.o
+	rm -f *.mod
