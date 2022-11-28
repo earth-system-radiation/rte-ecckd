@@ -11,9 +11,8 @@ private
 
 !> @brief Helper class used to calculate optical depth for each gas.
 type, public :: AbsorptionTable
-  real(kind=wp), dimension(:,:,:,:), allocatable :: coefficient !< Absorption coefficient [m2 mol-1] (gpoit, pressure, temperature).
+  real(kind=wp), dimension(:,:,:,:), allocatable :: coefficient !< Absorption coefficient [m2 mol-1] (gpoint, pressure, temperature).
   logical :: composite_only !< Only part of the "composite" gas?
-! real, dimension(:,:), allocatable :: composite_vmr
   integer :: concentration_dependence_code !< How is absoprtion coefficient calculated?
   real(kind=wp), dimension(:), allocatable :: mole_fraction !< Mole fraction look up table.
   real(kind=wp) :: reference_mole_fraction !< Reference mole fraction amount.
@@ -23,19 +22,17 @@ end type AbsorptionTable
 !> @brief Class implementing the ecckd correlated-k distribution gas optics model.
 type, extends(ty_gas_optics), public :: ty_gas_optics_ecckd
   type(AbsorptionTable), dimension(16) :: absorption !< Individual gas data.
-! character(len=16), dimension(16) :: composite_gas
-! real, dimension(:,:), allocatable :: composite_vmr
   character(len=32), dimension(16) :: gas !< Gas names.
   real(kind=wp), dimension(:,:), allocatable :: gpoint_fraction
-  real(kind=wp), dimension(:), allocatable :: log_pressure
+  real(kind=wp), dimension(:), allocatable :: log_pressure !< Natural log of pressure [Pa] (pressure).
   integer :: num_composite_gases !< Number of gases that make up the "composite" gas.
   integer :: num_gases !< Total number of gases.
-  real(kind=wp), dimension(:,:), allocatable :: planck_function
-  real(kind=wp), dimension(:), allocatable :: rayleigh_molar_scattering_coeff
+  real(kind=wp), dimension(:,:), allocatable :: planck_function !< Planck function flux into a horizontal plane [W m-2] (gpoint, planck temperature).
+  real(kind=wp), dimension(:), allocatable :: rayleigh_molar_scattering_coeff !< Rayleigh molar scattering coefficient [m2 mol-1] (gpoint).
   logical :: shortwave !< Longwave or shortwave.
-  real(kind=wp), dimension(:), allocatable :: solar_irradiance
-  real(kind=wp), dimension(:,:), allocatable :: temperature
-  real(kind=wp), dimension(:), allocatable :: temperature_planck
+  real(kind=wp), dimension(:), allocatable :: solar_irradiance !< Solar irradiance [W m-2] (gpoint).
+  real(kind=wp), dimension(:,:), allocatable :: temperature !< Temperature [K] (pressure, temperature).
+  real(kind=wp), dimension(:), allocatable :: temperature_planck !< Planck temperature [K] (planck temperature).
   real(kind=wp) :: total_solar_irradiance !< Total solar irradiance [W m-2].
   contains
   procedure, public :: source_is_internal
@@ -53,6 +50,7 @@ end type ty_gas_optics_ecckd
 
 real(kind=wp), parameter :: gravity = 9.80665 !< Acceleration due to gravity [m s-2].
 real(kind=wp), parameter :: dry_air_molar_mass = 28.970 !< Dry air molar mass [g mol-1].
+real(kind=wp), parameter :: pi = 3.14159265359
 integer, parameter, public :: none_ = 0
 integer, parameter, public :: linear = 1
 integer, parameter, public :: look_up_table = 2
@@ -83,6 +81,7 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
   integer :: it0
   integer :: iv0
   integer :: j
+  integer :: k
   real(kind=wp) :: log_p_0
   real(kind=wp) :: log_pressure
   real(kind=wp) :: log_vmr
@@ -120,24 +119,25 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
       ! Pressure interpolation points.
       log_pressure = log(0.5*(level_pressure(i,j+1) + level_pressure(i,j)))
       pressure_index = (log_pressure - log_p_0)/d_log_p
-      pressure_index = max(0._wp, &
-                           min(pressure_index, real(size(this%log_pressure) - 1.0001_wp, kind=wp)))
+      pressure_index = 1. + &
+                         max(0._wp, &
+                             min(pressure_index, &
+                                 real(size(this%log_pressure) - 1.0001_wp, kind=wp)))
       ip0 = int(pressure_index)
       pressure_weight1 = pressure_index - ip0
       pressure_weight0 = 1. - pressure_weight1
-      ip0 =  ip0 + 1
 
       ! Temperature interpolation points.
       t0 = pressure_weight0*this%temperature(ip0,1) + &
            pressure_weight1*this%temperature(ip0+1,1)
       temperature_index = (layer_temperature(i,j) - t0)/dt
-      temperature_index = max(0._wp, &
+      temperature_index = 1. + &
+                            max(0._wp, &
                               min(temperature_index, &
                                   real(size(this%temperature, 2) - 1.0001_wp, kind=wp)))
       it0 = int(temperature_index)
       temperature_weight1 = temperature_index - it0
       temperature_weight0 = 1. - temperature_weight1
-      it0 = it0 + 1
 
       ! Weighting.
       simple_weight = global_weight*(level_pressure(i,j+1) - level_pressure(i,j))
@@ -150,17 +150,17 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
 
       if (this%absorption(gas)%concentration_dependence_code .eq. look_up_table) then
         ! Volume mixing ratio interpolation points.
-        log_vmr = log(layer_vmr(i,j))
+        log_vmr = log(max(layer_vmr(i,j), this%absorption(gas)%mole_fraction(1)))
         d_log_vmr = log(this%absorption(gas)%mole_fraction(2)/ &
                         this%absorption(gas)%mole_fraction(1))
         vmr_index = (log_vmr - log(this%absorption(gas)%mole_fraction(1)))/d_log_vmr
-        vmr_index = max(0._wp, &
+        vmr_index = 1. + &
+                      max(0._wp, &
                         min(vmr_index, &
                             real(size(this%absorption(gas)%mole_fraction) - 1.001_wp, kind=wp)))
         iv0 = int(vmr_index)
         vmr_weight1 = vmr_index - iv0
         vmr_weight0 = 1. - vmr_weight1
-        iv0 = iv0 + 1
 
         !Tri-linear absorption interpolation.
         if (.not. logarithmic_interpolation) then
@@ -229,6 +229,13 @@ subroutine calculate_optical_depth(this, gas, level_pressure, layer_temperature,
             pressure_weight1*log(this%absorption(gas)%coefficient(:,ip0+1,it0+1,1))))
         endif
       endif
+
+      !Remove negative optical depths.
+      do k = 1, size(optical_depth, 3)
+        if (optical_depth(i,j,k) .lt. 0.) then
+          optical_depth(i,j,k) = 0.
+        endif
+      enddo
     enddo
   enddo
 end subroutine calculate_optical_depth
@@ -253,8 +260,8 @@ subroutine calculate_planck_function(this, level_temperature, planck)
   real(kind=wp) :: temperature_weight1
   real(kind=wp) :: t0
 
-  num_levels = size(level_temperature, 2)
   num_columns = size(level_temperature, 1)
+  num_levels = size(level_temperature, 2)
   num_gpoints = size(this%gpoint_fraction, 2)
   if (allocated(planck)) then
     deallocate(planck)
@@ -266,11 +273,11 @@ subroutine calculate_planck_function(this, level_temperature, planck)
   do j = 1, num_levels
     do i = 1, num_columns
       temperature_index = (level_temperature(i,j) - t0)/dt
-      if (temperature_index .gt. 0) then
-        it0 = min(int(temperature_index), size(this%temperature_planck) - 2)
+      if (temperature_index .ge. 0) then
+        temperature_index = 1. + temperature_index
+        it0 = min(int(temperature_index), size(this%temperature_planck) - 1)
         temperature_weight1 = temperature_index - it0
         temperature_weight0 = 1. - temperature_weight1
-        it0 = it0 + 1
         planck(i,j,:) = temperature_weight0*this%planck_function(:,it0) + &
                         temperature_weight1*this%planck_function(:,it0+1)
       else
@@ -278,7 +285,7 @@ subroutine calculate_planck_function(this, level_temperature, planck)
       endif
     enddo
   enddo
-  planck(:,:,:) = planck(:,:,:) / 3.14159265359
+  planck(:,:,:) = planck(:,:,:)/pi
 end subroutine calculate_planck_function
 
 
