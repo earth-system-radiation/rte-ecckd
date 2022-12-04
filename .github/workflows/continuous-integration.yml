@@ -39,7 +39,7 @@ jobs:
       
     - name: Check out rte-rrtmgp repo
       uses: actions/checkout@v3
-        with: earth-system-radiation/rte-rrtmgp
+        repository: earth-system-radiation/rte-rrtmgp
         path: ./rte-rrtmgp
 
     - name: Environmental variables
