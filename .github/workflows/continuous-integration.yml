@@ -36,11 +36,14 @@ jobs:
     # Checks out repository under $GITHUB_WORKSPACE
     - name: Check out host repo
       uses: actions/checkout@v3
-      
-    - name: Check out rte-rrtmgp repo
+      with:
+        path: rte-ecckd
+
+    - name: Check out RTE repo
       uses: actions/checkout@v3
+      with:
         repository: earth-system-radiation/rte-rrtmgp
-        path: ./rte-rrtmgp
+        path: rte-rrtmgp
 
     - name: Environmental variables
       run: echo "RRTMGP_ROOT=${GITHUB_WORKSPACE}/rte-rrtmgp"        >> $GITHUB_ENV
@@ -55,7 +58,7 @@ jobs:
 
     - name: Make RTE-ECCKD
       run: |
-        cd ${RRTMGP_ROOT}
+        cd rte-ecckd
         ${FC} --version
         make
 
