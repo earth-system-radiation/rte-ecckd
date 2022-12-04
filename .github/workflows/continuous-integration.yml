@@ -108,6 +108,7 @@ jobs:
       run: |
         ls 
         ${FC} --version
+        cd ${RRTMGP_ROOT}
         make libs
 
     - name: Make RTE-ECCKD
