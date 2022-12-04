@@ -112,8 +112,9 @@ jobs:
         make libs
 
     - name: Make RTE-ECCKD
+      env:
+        FCFLAGS: "-ffree-line-length-none -m64 -std=f2008 -march=native -fbounds-check -finit-real=nan -g -DRTE_USE_CBOOL -I/${RRTMGP_ROOT}/build"
       run: |
         cd rte-ecckd
-        echo "FCFLAGS= ${FCFLAGS} -I/${RRTMGP_ROOT}/build" >> $GITHUB_ENV
         make
 
