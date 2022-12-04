@@ -1,0 +1,60 @@
+name: Continuous Integration
+on: [push, pull_request]
+
+jobs:
+  CI:
+    runs-on: ubuntu-20.04
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      matrix:
+        fortran-compiler:  [gfortran-9, gfortran-10]
+    env:
+      FC: ${{ matrix.fortran-compiler }}
+      FCFLAGS: "-ffree-line-length-none -m64 -std=f2008 -march=native -fbounds-check -finit-real=nan -g -DRTE_USE_CBOOL"
+      CC: gcc
+      NCHOME: /home/runner/netcdf-c
+      NFHOME: /home/runner/netcdf-fortran
+      RFMIP_DIR: /home/runner/rfmip-files
+    steps:
+    - name: Update system packages
+      run: sudo apt-get update
+    ############################################################################
+    #
+    # Compilers....
+    #
+    # Gfortran 10 not available in Github CI stack, so install
+    #
+    - name: gfortran-10 setup compiler
+      if: contains(matrix.fortran-compiler, 'gfortran-10')
+      run: |
+        sudo apt-get install gfortran-10 gcc-10
+        echo "CC=gcc-10" >> $GITHUB_ENV
+
+  ############################################################################
+    # Checks out repository under $GITHUB_WORKSPACE
+    - name: Check out host repo
+      uses: actions/checkout@v3
+    - name: Check out rte-rrtmgp repo
+      uses: actions/checkout@v3
+        with: earth-system-radiation
+        path: ./rte-rrtmgp
+
+    - name: Environmental variables
+      run: echo "RRTMGP_ROOT=${GITHUB_WORKSPACE}/rte-rrtmgp"        >> $GITHUB_ENV
+
+    - name: Make RTE library
+      run: |
+        ls 
+        echo $RRTMGP_ROOT
+        cd ${RRTMGP_ROOT}
+        ${FC} --version
+        make libs
+
+    - name: Make RTE-ECCKD
+      run: |
+        cd ${RRTMGP_ROOT}
+        ${FC} --version
+        make
+
