@@ -112,8 +112,10 @@ jobs:
         make libs
 
     - name: Make RTE-ECCKD
+      env:
+        FCFLAGS: ${FCFLAGS}:
       run: |
         cd rte-ecckd
-        echo "FCFLAGS=${FCFLAGS}:${RRTMGP_ROOT}/build" >> $GITHUB_ENV
+        echo "FCFLAGS= ${FCFLAGS} -I/${RRTMGP_ROOT}/build" >> $GITHUB_ENV
         make
 
