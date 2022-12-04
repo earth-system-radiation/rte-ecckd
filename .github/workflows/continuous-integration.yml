@@ -107,14 +107,12 @@ jobs:
     - name: Make RTE library
       run: |
         ls 
-        echo $RRTMGP_ROOT
-        cd ${RRTMGP_ROOT}
         ${FC} --version
         make libs
 
     - name: Make RTE-ECCKD
       run: |
         cd rte-ecckd
-        ${FC} --version
+        echo "FCFLAGS=${FCFLAGS}:${RRTMGP_ROOT}/build" >> $GITHUB_ENV
         make
 
