@@ -10,14 +10,11 @@ jobs:
     strategy:
       matrix:
         gnu-compiler-version:  [10, 11, 12]
-        rte-kernels: [default, openacc]
     env:
       FC: gfortran-${{ matrix.gnu-compiler-version }}
       CC: gcc-${{ matrix.gnu-compiler-version }}
       FCFLAGS: "-ffree-line-length-none -m64 -std=f2008 -march=native -fbounds-check -finit-real=nan -g -DRTE_USE_CBOOL"
-      NCHOME: /home/runner/netcdf-c
       NFHOME: /home/runner/netcdf-fortran
-      RFMIP_DIR: /home/runner/rfmip-files
     steps:
     - name: Update system packages
       run: sudo apt-get update
@@ -34,30 +31,8 @@ jobs:
     #
     - name: Install HDF5 library
       run: |
-        sudo apt-get install libhdf5-dev libcurl4-gnutls-dev hdf5-helpers
-        dpkg -L libhdf5-dev
-
-    # Skipping this for now - netCDF configure doesn't see the HDF libararies
-    - name: cache-netcdf-c
-      id: cache-netcdf-c
-      uses: actions/cache@v3
-      with:
-        path: /home/runner/netcdf-c
-        key: netcdf-c-4.7.4a-${{ runner.os }}-${{ matrix.fortran-compiler }}
-
-    - name: Install netcdf C library from source
-      if: steps.cache-netcdf-c.outputs.cache-hit != 'true'
-      env:
-        CPPFLAGS: -I/usr/include/hdf5/serial
-        LDFLAGS: -L/usr/lib/x86_64-linux-gnu/hdf5/serial/
-      run: |
-        ${CC} --version
-        git clone https://github.com/Unidata/netcdf-c.git --branch v4.7.4
-        cd netcdf-c
-        ls /usr/include
-        ./configure --prefix=${NCHOME}
-        make -j
-        sudo make install
+        sudo apt-get install libhdf5-dev libcurl4-gnutls-dev hdf5-helpers libnetcdf-dev
+        dpkg -L libhdf5-dev libnetcdf-dev
 
     # Would be great to encode version info
     - name: cache-netcdf-fortran
