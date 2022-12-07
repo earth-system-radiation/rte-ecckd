@@ -3,17 +3,18 @@ on: [push, pull_request]
 
 jobs:
   CI:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     defaults:
       run:
         shell: bash -l {0}
     strategy:
       matrix:
-        fortran-compiler:  [gfortran-9, gfortran-10]
+        gnu-compiler-version:  [10, 11, 12]
+        rte-kernels: [default, openacc]
     env:
-      FC: ${{ matrix.fortran-compiler }}
+      FC: gfortran-${{ matrix.gnu-compiler-version }}
+      CC: gcc-${{ matrix.gnu-compiler-version }}
       FCFLAGS: "-ffree-line-length-none -m64 -std=f2008 -march=native -fbounds-check -finit-real=nan -g -DRTE_USE_CBOOL"
-      CC: gcc
       NCHOME: /home/runner/netcdf-c
       NFHOME: /home/runner/netcdf-fortran
       RFMIP_DIR: /home/runner/rfmip-files
@@ -23,14 +24,10 @@ jobs:
     ############################################################################
     #
     # Compilers....
-    #
-    # Gfortran 10 not available in Github CI stack, so install
-    #
-    - name: gfortran-10 setup compiler
-      if: contains(matrix.fortran-compiler, 'gfortran-10')
+    #    #
+    - name: install compilers
       run: |
-        sudo apt-get install gfortran-10 gcc-10
-        echo "CC=gcc-10" >> $GITHUB_ENV
+        sudo apt-get install gfortran-${{ matrix.gnu-compiler-version }} gcc-${{ gnu-compiler-version }}
 
     ############################################################################
     #
