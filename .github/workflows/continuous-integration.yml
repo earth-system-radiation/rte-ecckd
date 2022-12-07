@@ -26,7 +26,7 @@ jobs:
     # Compilers....
     #    #
     - name: install compilers
-      run: sudo apt-get install gfortran-${{ matrix.gnu-compiler-version }} gcc-${{ gnu-compiler-version }}
+      run: sudo apt-get install gfortran-${{ matrix.gnu-compiler-version }} gcc-${{ matrix.gnu-compiler-version }}
 
     ############################################################################
     #
